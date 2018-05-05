@@ -11,4 +11,5 @@ type Blockdev interface {
 	ReadAligned(pos int, size int) (data []byte, err error)
 	Write(pos int, data []byte) error
 	Read(pos int,size int) (data []byte, err error)
+	Sync()
 }
