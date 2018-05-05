@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/XANi/flashtest/blockdev"
 	"github.com/op/go-logging"
 	"github.com/urfave/cli"
 	"os"
@@ -46,7 +47,7 @@ func main() {
 			Aliases: []string{"w"},
 			Usage:   "Write test pattern into the flash",
 			Action: func(c *cli.Context) error {
-				log.Warning("running example cmd")
+				log.Warningf("running example cmd: %+v", c.Args())
 				return nil
 			},
 		},
@@ -69,6 +70,8 @@ func main() {
 			},
 		},
 	}
+	d, _ := blockdev.NewFromFile(`data`)
+	_ = d
 	sort.Sort(cli.FlagsByName(app.Flags))
 	sort.Sort(cli.CommandsByName(app.Commands))
 	app.Run(os.Args)
