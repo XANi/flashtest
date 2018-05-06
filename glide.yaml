@@ -1,4 +1,5 @@
-package: .
+package: github.com/XANi/flashtest
 import:
 - package: github.com/op/go-logging
 - package: github.com/urfave/cli
+- package: github.com/klauspost/reedsolomon

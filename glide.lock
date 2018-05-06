@@ -1,8 +1,27 @@
-hash: d1d0a4c79d705ec9c7f80ce89ede3af409efdc6fc9b8e88c439cdacc23f8dcf6
-updated: 2018-01-11T20:48:52.268244264+01:00
+hash: b9cf558597c0d5a40bc25b358f243d80578c608f107fabcdb7a9a802430ab934
+updated: 2018-05-06T05:42:18.083166272+02:00
 imports:
+- name: github.com/klauspost/reedsolomon
+  version: 7d9453e171e998ffa322b015f10db4e4519adadf
 - name: github.com/op/go-logging
   version: 970db520ece77730c7e4724c61121037378659d9
 - name: github.com/urfave/cli
   version: 4b90d79a682b4bf685762c7452db20f2a676ecb2
-testImports: []
+testImports:
+- name: github.com/gopherjs/gopherjs
+  version: dc374d32704510cb387457180ca9d5193978b555
+  subpackages:
+  - js
+- name: github.com/jtolds/gls
+  version: 77f18212c9c7edc9bd6a33d383a7b545ce62f064
+- name: github.com/smartystreets/assertions
+  version: 4ea54c1f28ad3ae597e76607dea3871fa177e263
+  subpackages:
+  - internal/go-render/render
+  - internal/oglematchers
+- name: github.com/smartystreets/goconvey
+  version: 9e8dc3f972df6c8fcc0375ef492c24d0bb204857
+  subpackages:
+  - convey
+  - convey/gotest
+  - convey/reporting
