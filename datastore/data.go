@@ -17,28 +17,45 @@ type Block struct {
 func init() {
 	var b Block
 	sizeOfBlock := unsafe.Sizeof(b)
-	if sizeOfBlock != 512 {
+	if int(sizeOfBlock) != blockSize {
 		// test in case we fuck up alignment in struct or some arch messes it up
 		panic(fmt.Sprintf("size of block should equal 512 not %d",sizeOfBlock))
 	}
 }
 
-
-func NewBlockset(data []byte, blocksize int) (out [][]byte, err error) {
-	blocks := dataShards + parityShards
-	if blocksize%blocks != 0 {
-		return out, fmt.Errorf("Blocksize %d does not divide evenly into %d encoding blocks")
+// Split input data into shards to be used with encoder
+func NewErasureset(data []byte) (out [][]byte, err error) {
+	sizeRaw := make([]byte,4)
+	binary.BigEndian.PutUint32(sizeRaw,uint32(len(data)))
+	data = append(sizeRaw, data...)
+	if len(data) >  (blockDataSize * dataShards){
+		return out, fmt.Errorf("Data + header is bigger[%d] than total Erasureset capacity, should get at most %d bytes", len(data), erasureSetDataSize)
 	}
-	if blocksize%blocks != 0 {
-		return out, fmt.Errorf("Blocksize %d does not divide evenly into %d encoding blocks")
+	out = make([][]byte, totalShards)
+	var chunk []byte
+	blkid := 0
+	for len(data) >= blockDataSize {
+		chunk, data = data[:blockDataSize], data[blockDataSize:]
+		out[blkid] = chunk
+		blkid++
 	}
-	maxBlockSize := blocksize / blocks
-	_ = maxBlockSize
+	if len(data) > 0 {
+		out[blkid] = make([]byte,blockDataSize)
+		copy(out[blkid], data)
+		blkid++
+	}
+	for blkid < totalShards {
+		out[blkid] = make([]byte,blockDataSize)
+		blkid++
+	}
 	return out,err
 }
+
+
+// create new data block (block that is supposed to be saved in target file/device)
 func NewBlock(id uint8, data []byte) ( out []byte, err  error) {
-    if len(data) > 500 {
-		return out, fmt.Errorf("block too large: %d > 246", len(data))
+    if len(data) > blockDataSize {
+		return out, fmt.Errorf("block too large: %d > 500", len(data))
 	}
     var b Block
     b.id=uint16(id)
@@ -48,8 +65,14 @@ func NewBlock(id uint8, data []byte) ( out []byte, err  error) {
 	binary.Write(&buf, binary.BigEndian,b)
 	out = make([]byte,512)
 	n, err := buf.Read(out)
-	if n != 512 {
+	if n != blockSize {
 		return out, fmt.Errorf("read only %d bytes from buffer instead of 512", n)
 	}
 	return out, err
+}
+func Datasize() int {
+	return blockDataSize
+}
+func Blocksize() int {
+	return blockSize
 }

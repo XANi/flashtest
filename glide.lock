@@ -1,6 +1,8 @@
 hash: b9cf558597c0d5a40bc25b358f243d80578c608f107fabcdb7a9a802430ab934
-updated: 2018-05-06T05:42:18.083166272+02:00
+updated: 2018-05-12T01:27:51.03808677+02:00
 imports:
+- name: github.com/klauspost/cpuid
+  version: e7e905edc00ea8827e58662220139109efea09db
 - name: github.com/klauspost/reedsolomon
   version: 7d9453e171e998ffa322b015f10db4e4519adadf
 - name: github.com/op/go-logging
