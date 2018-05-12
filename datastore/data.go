@@ -2,34 +2,26 @@ package datastore
 
 import (
 	"fmt"
-	"unsafe"
 	"bytes"
 	"encoding/binary"
+	"hash/crc64"
 )
 
 // ID is uint16 because of byte alignment
 type Block struct {
-	id    uint16
-	size  uint16
-	data  [500]byte
-	crc64 [8]byte
-}
-func init() {
-	var b Block
-	sizeOfBlock := unsafe.Sizeof(b)
-	if int(sizeOfBlock) != blockSize {
-		// test in case we fuck up alignment in struct or some arch messes it up
-		panic(fmt.Sprintf("size of block should equal 512 not %d",sizeOfBlock))
-	}
+	Id    uint16
+	Size  uint16
+	Data  [500]byte
+	Crc64 uint64
 }
 
-// Split input data into shards to be used with encoder
-func NewErasureset(data []byte) (out [][]byte, err error) {
+// Split input Data into shards to be used with encoder
+func newErasureset(data []byte) (out [][]byte, err error) {
 	sizeRaw := make([]byte,4)
 	binary.BigEndian.PutUint32(sizeRaw,uint32(len(data)))
 	data = append(sizeRaw, data...)
 	if len(data) >  (blockDataSize * dataShards){
-		return out, fmt.Errorf("Data + header is bigger[%d] than total Erasureset capacity, should get at most %d bytes", len(data), erasureSetDataSize)
+		return out, fmt.Errorf("GetData + header is bigger[%d] than total Erasureset capacity, should get at most %d bytes", len(data), erasureSetDataSize)
 	}
 	out = make([][]byte, totalShards)
 	var chunk []byte
@@ -52,15 +44,16 @@ func NewErasureset(data []byte) (out [][]byte, err error) {
 }
 
 
-// create new data block (block that is supposed to be saved in target file/device)
-func NewBlock(id uint8, data []byte) ( out []byte, err  error) {
+// create new Data block (block that is supposed to be saved in target file/device)
+func newBlock(id uint8, data []byte) ( out []byte, err  error) {
     if len(data) > blockDataSize {
 		return out, fmt.Errorf("block too large: %d > 500", len(data))
 	}
     var b Block
-    b.id=uint16(id)
-    copy(b.data[:], data[:])
-	b.size = uint16(len(data))
+    b.Id =uint16(id)
+    copy(b.Data[:], data[:])
+	b.Size = uint16(len(data))
+	b.UpdateChecksum()
 	var buf bytes.Buffer
 	binary.Write(&buf, binary.BigEndian,b)
 	out = make([]byte,512)
@@ -70,9 +63,39 @@ func NewBlock(id uint8, data []byte) ( out []byte, err  error) {
 	}
 	return out, err
 }
-func Datasize() int {
+func loadBlock(data []byte) (*Block, error) {
+	var b Block
+	buf := bytes.NewReader(data)
+	err := binary.Read(buf, binary.BigEndian, &b)
+	if err != nil {
+		return nil, err
+	}
+	if !b.VerifyChecksum() {
+		return nil, fmt.Errorf("Block checksum mismatch")
+	}
+	return &b, err
+}
+func(b *Block) GetData() []byte {
+	return b.Data[:b.Size]
+}
+func(b *Block) encode()[]byte {
+	var buf bytes.Buffer
+	binary.Write(&buf, binary.BigEndian,b)
+	out := make([]byte,512)
+	buf.Read(out)
+	return out
+}
+func(b *Block) UpdateChecksum() {
+	data := (b.encode())[:512-8]
+	b.Crc64 = crc64.Checksum(data, crc64table)
+}
+func(b *Block) VerifyChecksum() bool{
+	data := (b.encode())[:512-8]
+	return b.Crc64 == crc64.Checksum(data,crc64table)
+}
+func datasize() int {
 	return blockDataSize
 }
-func Blocksize() int {
+func blocksize() int {
 	return blockSize
 }

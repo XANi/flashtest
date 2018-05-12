@@ -4,29 +4,28 @@ import (
 	"github.com/klauspost/reedsolomon"
 	"fmt"
 )
-
-type Encoder struct {
+type encoder struct {
 	encoder reedsolomon.Encoder
 }
 
-func NewEncoder() *Encoder {
+func newEncoder() *encoder {
 	enc, err := reedsolomon.New(dataShards,parityShards)
 	if err != nil {
 		panic(fmt.Sprintf("Can't initalize encoder: %s", err))
 	}
-	var e Encoder
+	var e encoder
 	e.encoder = enc
 	return &e
 }
-func (e *Encoder) Encode(data *[][]byte) error {
+func (e *encoder) Encode(data *[][]byte) error {
 	return e.encoder.Encode(*data)
 }
 
-func (e *Encoder) Verify(data [][]byte)(bool, error) {
+func (e *encoder) Verify(data [][]byte)(bool, error) {
 	return e.encoder.Verify(data)
 }
 
-func (e *Encoder) Repair(data *[][]byte, failedShards []uint8) error {
+func (e *encoder) Repair(data *[][]byte, failedShards []uint8) error {
 	// mark failed shards
 	for a := range(failedShards) {
 		(*data)[a] = nil

@@ -8,8 +8,8 @@ import (
 
 func TestEncoder(t *testing.T) {
 	testblkData2 := append([]byte("xxxxxx"))
-	es, _ := NewErasureset(testblkData2)
-	enc := NewEncoder()
+	es, _ := newErasureset(testblkData2)
+	enc := newEncoder()
 	err := enc.Encode(&es)
 	verify, err2 := enc.Verify(es)
 	Convey("encode", t, func() {
@@ -17,7 +17,7 @@ func TestEncoder(t *testing.T) {
 		So(err2,ShouldBeNil)
 		So(verify,ShouldBeTrue)
 	})
-	// drop data
+	// drop Data
 	oldBlkVal := es[0]
 	es[0]=nil
 	verify, err2 = enc.Verify(es)
