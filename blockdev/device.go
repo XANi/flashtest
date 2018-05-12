@@ -4,13 +4,12 @@ import (
 	"os"
 	"fmt"
 )
-
+var Debug bool
 type Device struct {
 	path string
 	blocksize int
 	file *os.File
 }
-
 
 func NewFromFile(filename string) (Blockdev, error) {
 	d :=  Device{
@@ -51,13 +50,13 @@ func (d *Device)Write(pos int, data []byte) error {
 	if n != len(data) {
 		return fmt.Errorf("only %d out of %d bytes were written: %s", n, len(data), err)
 	}
-	fmt.Printf("W: %d - %d\n",pos, len(data))
+	if Debug {fmt.Printf("W: %d - %d\n",pos, len(data))}
 	return err
 }
 func (d *Device)Read(pos int,size int) (data []byte, err error) {
 	b := make([]byte,size)
 	n, err := d.file.ReadAt(b,int64(pos))
-	fmt.Printf("R: %d - %d\n",pos, size)
+	if Debug {fmt.Printf("R: %d - %d\n",pos, size)}
 	if n != size {
 		return b, fmt.Errorf("only %d out of %d bytes were read: %s", n, len(data), err)
 	}
