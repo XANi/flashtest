@@ -2,6 +2,7 @@ package blockdev
 
 type Blockdev interface {
 	GetBlocksize() int
+	GetSize() int
 	// write data aligned to block size.
 	// Will fail if position does not align to the block size or if data size is not a multiple of
 	// the blocksize

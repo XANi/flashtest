@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/XANi/flashtest/blockdev"
+	"github.com/XANi/flashtest/cmd"
 	"github.com/op/go-logging"
 	"github.com/urfave/cli"
 	"os"
@@ -30,6 +31,10 @@ func main() {
 			Usage: "Device, or file, to write to",
 			//EnvVar: "_DEVICE",
 		},
+		cli.IntFlag{
+			Name:  "size",
+			Usage: "Overrides detected size; can be also used to expand empty files",
+		},
 	}
 	app.Action = func(c *cli.Context) error {
 		if c.Bool("help") {
@@ -47,7 +52,7 @@ func main() {
 			Aliases: []string{"w"},
 			Usage:   "Write test pattern into the flash",
 			Action: func(c *cli.Context) error {
-				log.Warningf("running example cmd: %+v", c.Args())
+				cmd.WriteFile(c.GlobalString("device"), c.GlobalInt("size"))
 				return nil
 			},
 		},
@@ -56,6 +61,7 @@ func main() {
 			Aliases: []string{"v"},
 			Usage:   "Verify already written flash",
 			Action: func(c *cli.Context) error {
+				cmd.VerifyFile(c.GlobalString("device"), c.GlobalInt("size"))
 				log.Warning("running example cmd")
 				return nil
 			},

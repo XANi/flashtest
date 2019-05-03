@@ -7,7 +7,7 @@ import (
 
 // returns Size of Data block
 func GetBlockSize() int {
-	return dataBlockSize
+	return DataBlockSize
 }
 
 // returns the Size of Data that each block carries
@@ -30,7 +30,7 @@ func EncodeDataBlock(data []byte) ([]byte, error) {
 	if err != nil { return nil, err }
 	err = enc.Encode(&esBlock)
 	if err != nil {	return nil, err }
-	out := make([]byte,0,dataBlockSize)
+	out := make([]byte,0, DataBlockSize)
 	for id, chunk := range esBlock {
 		block, err := newBlock(uint8(id),chunk)
 		if err != nil { return nil, err }
@@ -40,8 +40,8 @@ func EncodeDataBlock(data []byte) ([]byte, error) {
 }
 // Decode Data block. Returns Data and list of errors
 func DecodeDataBlock(data []byte) (out []byte, errlist []DecodeError,err error) {
-	if len(data) != dataBlockSize {
-		return out, errlist, fmt.Errorf("only full sized (%d) blocks are accepted, got [%d]", dataBlockSize, len(data))
+	if len(data) != DataBlockSize {
+		return out, errlist, fmt.Errorf("only full sized (%d) blocks are accepted, got [%d]", DataBlockSize, len(data))
 	}
 	shards := make([]*Block, totalShards)
 	erasureBlock := make([][]byte, totalShards)

@@ -23,6 +23,12 @@ func NewFromFile(filename string) (Blockdev, error) {
 func (d *Device)GetBlocksize() int {
 	return d.blocksize
 }
+func (d *Device)GetSize() int {
+	stat, err := d.file.Stat()
+	_ = err //TODO log
+	return int(stat.Size())
+}
+
 
 func (d *Device)Sync() {
 	d.file.Sync()
