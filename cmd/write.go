@@ -5,8 +5,39 @@ import (
 	"github.com/XANi/flashtest/datastore"
 	"github.com/op/go-logging"
 	"fmt"
+	"runtime"
+	"sync"
+	"time"
 )
 var log = logging.MustGetLogger("main")
+
+type writeQ struct {
+	block []byte
+	offset int
+}
+type encodeQ struct {
+	block []byte
+	offset int
+}
+func writeQWorker(in chan writeQ, dev blockdev.Blockdev) {
+	for qe := range in{
+		err := dev.Write(qe.offset,qe.block)
+		if err != nil {log.Errorf("write error at %d:%s", qe.offset,err)}
+	}
+	log.Infof("Write done")
+}
+
+func encodeQWorker(in chan encodeQ, out chan writeQ) {
+	for e := range in {
+		 data,err := datastore.EncodeDataBlock(e.block)
+		 if err != nil {
+			 log.Warningf("error encoding %s, data:%s", err, data)
+		 } else {
+			 out <- writeQ{block: data, offset: e.offset}
+		 }
+	}
+}
+
 func WriteFile(filename string, filesize int) {
 	dev, err := blockdev.NewFromFile(filename)
 	if err != nil {
@@ -25,14 +56,45 @@ func WriteFile(filename string, filesize int) {
 	if filesize > checkedSize {
 		log.Warningf("File is not aligned to data block size[%d]. Will not touch last %d bytes", datastore.DataBlockSize, filesize-checkedSize)
 	}
+	log.Infof("blocks to write: %d",dataBlocks)
+	lastOutput:=time.Now()
+	var wgWrite sync.WaitGroup
+	var wgEncode sync.WaitGroup
+	wq := make(chan writeQ,runtime.NumCPU()*4)
+	eq := make(chan encodeQ,runtime.NumCPU()*4)
+	for i:=0; i < runtime.NumCPU();i++ {
+		go func() {
+			wgEncode.Add(1)
+			encodeQWorker(eq, wq)
+			wgEncode.Done()
+		}()
+	}
+	go func() {
+		wgWrite.Add(1)
+		writeQWorker(wq,dev)
+		wgWrite.Done()
+
+	}()
 	for i := 0; i < dataBlocks; i++ {
 		offset := i * datastore.DataBlockSize
-		log.Infof("Writing block %d at offset %d",i, offset)
-		data, err := datastore.EncodeDataBlock([]byte(fmt.Sprintf("Block %d",i)))
+		if lastOutput.Add(time.Second * 10).Before(time.Now()) {
+			lastOutput = time.Now()
+			log.Infof("Writing block %d/%d at offset %d",i,dataBlocks, offset)
+		}
+		eq <- encodeQ{block: []byte(fmt.Sprintf("Block %d",i)),offset:offset}
+		//data, err := datastore.EncodeDataBlock([]byte(fmt.Sprintf("Block %d",i)))
+
+
 		_ = err // handle err
-		err = dev.Write(offset,data)
+		//wq <- writeQ{block:data,offset:offset}
+		//err = dev.Write(offset,data)
 		_ = err // handle write errors
 	}
+	close(eq)
+	wgEncode.Wait()
+	close(wq)
+	wgWrite.Wait()
+	//_ = <- end
 }
 type verifyQ struct {
 	block []byte
@@ -66,13 +128,15 @@ func VerifyFile(filename string, filesize int) {
 	go func() {
 		  for qe := range vq {
 		  	ok,out,errlist,err:=verifyBlock(qe.block,qe.offset)
+		  	_ = out
 			  if ok {
-				  log.Infof("decoded block %d: %s", qe.offset, string(out))
+				  //log.Infof("decoded block %d: %s", qe.offset, string(out))
 			  }
 			  if len(errlist) > 0 {
 				  log.Warning("  found errors")
 				  for _, e := range errlist {
-					  log.Warningf("  [%d] error: %+v", qe.offset, e)
+				  	_ = e
+					//  log.Warningf("  [%d] error: %+v", qe.offset, e)
 				  }
 			  }
 			  if err != nil {
@@ -86,6 +150,7 @@ func VerifyFile(filename string, filesize int) {
 		data,_ := dev.Read(offset,datastore.DataBlockSize)
 		vq <- verifyQ{block:data,offset:offset}
 	}
+	time.Sleep(time.Second*10)
 	close(vq)
 	_ = <- end
 }
