@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 var log = logging.MustGetLogger("main")
@@ -50,7 +51,7 @@ func WriteFile(filename string, filesize int) {
 	dataBlocks := int(filesize/datastore.DataBlockSize)
 	checkedSize := dataBlocks * datastore.DataBlockSize
 	if dataBlocks < 1 {
-		log.Errorf("file too small, must be at least %d bytes",datastore.DataBlockSize)
+		log.Errorf("file too small[%d], must be at least %d bytes",filesize, datastore.DataBlockSize)
 		return
 	}
 	if filesize > checkedSize {
@@ -63,38 +64,30 @@ func WriteFile(filename string, filesize int) {
 	wq := make(chan writeQ,runtime.NumCPU()*4)
 	eq := make(chan encodeQ,runtime.NumCPU()*4)
 	for i:=0; i < runtime.NumCPU();i++ {
+		wgEncode.Add(1)
 		go func() {
-			wgEncode.Add(1)
 			encodeQWorker(eq, wq)
 			wgEncode.Done()
 		}()
 	}
+	wgWrite.Add(1)
 	go func() {
-		wgWrite.Add(1)
 		writeQWorker(wq,dev)
 		wgWrite.Done()
-
 	}()
 	for i := 0; i < dataBlocks; i++ {
 		offset := i * datastore.DataBlockSize
 		if lastOutput.Add(time.Second * 10).Before(time.Now()) {
 			lastOutput = time.Now()
-			log.Infof("Writing block %d/%d at offset %d",i,dataBlocks, offset)
+			progressPct := float32(i) / float32(dataBlocks) * 100
+			log.Infof("Writing block %d/%d at offset %d (%.0f)",i,dataBlocks, offset, progressPct)
 		}
 		eq <- encodeQ{block: []byte(fmt.Sprintf("Block %d",i)),offset:offset}
-		//data, err := datastore.EncodeDataBlock([]byte(fmt.Sprintf("Block %d",i)))
-
-
-		_ = err // handle err
-		//wq <- writeQ{block:data,offset:offset}
-		//err = dev.Write(offset,data)
-		_ = err // handle write errors
 	}
 	close(eq)
 	wgEncode.Wait()
 	close(wq)
 	wgWrite.Wait()
-	//_ = <- end
 }
 type verifyQ struct {
 	block []byte
@@ -105,6 +98,7 @@ type reportQ struct {
 	size int
 	ok bool
 }
+
 func VerifyFile(filename string, filesize int) {
 	dev, err := blockdev.NewFromFile(filename)
 	if err != nil {
@@ -117,7 +111,7 @@ func VerifyFile(filename string, filesize int) {
 	dataBlocks := int(filesize/datastore.DataBlockSize)
 	checkedSize := dataBlocks * datastore.DataBlockSize
 	if dataBlocks < 1 {
-		log.Errorf("file too small, must be at least %d bytes",datastore.DataBlockSize)
+		log.Errorf("file too small[%d], must be at least %d bytes",filesize,datastore.DataBlockSize)
 		return
 	}
 	if filesize > checkedSize {
@@ -125,14 +119,20 @@ func VerifyFile(filename string, filesize int) {
 	}
 	vq := make(chan verifyQ,5)
 	end := make(chan bool,1)
+	var goodCount int64
+	var badCount int64
+	var count int64
 	go func() {
 		  for qe := range vq {
 		  	ok,out,errlist,err:=verifyBlock(qe.block,qe.offset)
+			  atomic.AddInt64(&count,1)
 		  	_ = out
 			  if ok {
+				  atomic.AddInt64(&goodCount,1)
 				  //log.Infof("decoded block %d: %s", qe.offset, string(out))
 			  }
 			  if len(errlist) > 0 {
+				  atomic.AddInt64(&badCount,1)
 				  log.Warning("  found errors")
 				  for _, e := range errlist {
 				  	_ = e
@@ -140,6 +140,7 @@ func VerifyFile(filename string, filesize int) {
 				  }
 			  }
 			  if err != nil {
+				  atomic.AddInt64(&badCount,1)
 				  log.Errorf("error decoding block %d: %s",qe.offset,err)
 			  }
 		  }
@@ -148,10 +149,10 @@ func VerifyFile(filename string, filesize int) {
 	for i := 0; i < dataBlocks; i++ {
 		offset := i * datastore.DataBlockSize
 		data,_ := dev.Read(offset,datastore.DataBlockSize)
-		vq <- verifyQ{block:data,offset:offset}
+		vq <- verifyQ{block: data,offset: offset}
 	}
-	time.Sleep(time.Second*10)
 	close(vq)
+	log.Noticef("good/bad/total: %d/%d/%d",goodCount,badCount,count)
 	_ = <- end
 }
 

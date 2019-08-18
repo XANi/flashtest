@@ -62,7 +62,6 @@ func main() {
 			Usage:   "Verify already written flash",
 			Action: func(c *cli.Context) error {
 				cmd.VerifyFile(c.GlobalString("device"), c.GlobalInt("size"))
-				log.Warning("running example cmd")
 				return nil
 			},
 		},

@@ -1,6 +1,7 @@
 package blockdev
 
 import (
+	"log"
 	"os"
 	"fmt"
 )
@@ -25,8 +26,19 @@ func (d *Device)GetBlocksize() int {
 }
 func (d *Device)GetSize() int {
 	stat, err := d.file.Stat()
-	_ = err //TODO log
-	return int(stat.Size())
+	if err != nil {
+		log.Panicf("error seeking file: %s", err)
+	}
+	// block devices won't return size via stat call, need to check it in other way
+	if stat.Size() == 0 {
+		end, err := d.file.Seek(0, os.SEEK_END)
+		if err != nil {
+			log.Panicf("error checking file size: %s", err)
+		}
+		return int(end)
+	} else {
+		return int(stat.Size())
+	}
 }
 
 
